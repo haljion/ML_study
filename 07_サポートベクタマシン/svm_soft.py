@@ -7,8 +7,12 @@
 import numpy as np
 from operator import itemgetter
 
-
+# ソフトマージンSVM
 class SVC:
+    def __init__(self, C=1.):
+        self.C = C
+    
+    
     def fit(self, X, y, selections=None):
         a = np.zeros(X.shape[0]) # aの初期値は0
         ay = 0 # Σ(k=1~n) a(k)y(k)
@@ -21,8 +25,9 @@ class SVC:
             ydf = y * (1-np.dot(yx, ayx.T))
             # iとjの値をargminとargmaxで求める
             iydf = np.c_[indices, ydf]
-            i = int(min(iydf[(y < 0) | (a > 0)], key=itemgetter(1))[0])
-            j = int(min(iydf[(y > 0) | (a > 0)], key=itemgetter(1))[0])
+            # I+, I- の定義がhardと違う為注意
+            i = int(min(iydf[((a > 0) & (y > 0)) | ((a < self.C) & (y < 0))], key=itemgetter(1))[0])
+            j = int(max(iydf[((a > 0) & (y < 0)) | ((a < self.C) & (y > 0))], key=itemgetter(1))[0])
             
             if ydf[i] >= ydf[j]:
                 break
@@ -36,12 +41,19 @@ class SVC:
             aj = (-ai * y[i] - ay2) * y[j]
             
             # ^ai < 0 または ^aj < 0 の時の処理
+            # ^ai > C または ^aj > C の時の考慮が加わっているので注意
             if ai < 0:
                 ai = 0
-                aj = (-ai * y[i] - ay2) * y[j]
+            elif ai > self.C:
+                ai = self.C
+            
+            aj = (-ai * y[i] - ay2) * y[j]
             
             if aj < 0:
                 aj = 0
+                ai = (-aj * y[j] - ay2) * y[i]
+            elif aj > self.C:
+                aj = self.C
                 ai = (-aj * y[j] - ay2) * y[i]
                 
             ay += y[i] * (ai - a[i]) + y[j] * (aj - a[j])
@@ -60,5 +72,5 @@ class SVC:
         
         
     def predict(self, X):
-        return np.sign(self.w0_ + np.dot(X. self.w_))
+        return np.sign(self.w0_ + np.dot(X, self.w_))
 
